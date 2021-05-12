@@ -13,19 +13,19 @@ dependencies:
   shrine_images: 1.1.1
   cloud_firestore: ^1.0.0
   firebase_auth: ^1.0.0
-  google_fonts: ^2.0.0
-  provider: ^5.0.0
+  google_sign_in: ^4.5.1
+  image_picker: ^0.7.4
+  firebase_storage: ^8.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
 flutter:
-  # TODO: Insert Fonts (103)
   uses-material-design: true
   assets:
     - assets/diamond.png
-    # TODO: Add slanted menu asset (104)
+    - assets/logo.png
     - packages/shrine_images/0-0.jpg
     - packages/shrine_images/1-0.jpg
     - packages/shrine_images/2-0.jpg

@@ -15,11 +15,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-import 'authentication.dart';
-import 'widgets.dart';
+import 'home.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -29,180 +27,106 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => ApplicationState(),
-      builder: (context, _) => Application(),
-    );
-  }
-}
-
-class Application extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Firebase Meetup',
-      theme: ThemeData(
-        buttonTheme: Theme.of(context).buttonTheme.copyWith(
-          highlightColor: Colors.deepPurple,
-        ),
-        primarySwatch: Colors.deepPurple,
-        textTheme: GoogleFonts.robotoTextTheme(
-          Theme.of(context).textTheme,
-        ),
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: Loginpage(),
-    );
-  }
-}
-
-class Loginpage extends StatelessWidget {
-  Loginpage({Key key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.symmetric(horizontal: 24.0),
-          children: <Widget>[
-            SizedBox(height: 80.0),
-            Column(
-              children: <Widget>[
-                Image.asset('assets/diamond.png'),
-                SizedBox(height: 16.0),
-                Text('SHRINE'),
-              ],
-            ),
-            SizedBox(height: 120.0),
-            TextField(
-              decoration: InputDecoration(
-                filled: true,
-                labelText: 'Username',
-              ),
-            ),
-            SizedBox(height: 12.0),
-            TextField(
-              decoration: InputDecoration(
-                filled: true,
-                labelText: 'Password',
-              ),
-              obscureText: true,
-            ),
-            ButtonBar(
-              children: <Widget>[
-                FlatButton(
-                  child: Text('CANCEL'),
-                  onPressed: () {
-                  },
-                ),
-                RaisedButton(
-                  child: Text('NEXT'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-            RaisedButton(
-              child: Text('Google Login'),
-              color: Colors.white,
-              onPressed: () {
-              },
-            ),
-            RaisedButton(
-              child: Text('Guest Login'),
-              color: Colors.white,
-              onPressed: () {
-              },
-            ),
-          ],
-        ),
-      ),
+        body: SafeArea(
+            child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: 24.0),
+                children: <Widget>[
+                  SizedBox(height: 80.0),
+                  Column(
+                    children: <Widget>[
+                      Image.asset('assets/diamond.png'),
+                      SizedBox(height: 16.0),
+                      Text('SHRINE'),
+                    ],
+                  ),
+                  SizedBox(height: 120.0),
+                  _GoogleLogin(),
+                  _AnonymouslyLogin(),
+                ]
+            )
+        )
     );
   }
 }
 
-class ApplicationState extends ChangeNotifier {
-  ApplicationState() {
-    init();
+class _GoogleLogin extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => _GoogleLoginState();
+}
+
+class _GoogleLoginState extends State<_GoogleLogin> {
+  @override
+  Widget build(BuildContext context) {
+    return RaisedButton(
+      child: Text('Google Login'),
+      color: Colors.white,
+      onPressed: () {
+        _signInWithGoogle();
+      },
+    );
   }
 
-  Future<void> init() async {
+  void _signInWithGoogle() async {
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      await Firebase.initializeApp();
+
+      final GoogleSignInAccount googleUser = await GoogleSignIn().signIn();
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+      Navigator.push(context,
+          MaterialPageRoute(builder: (context) => HomePage())
+      );
+    } catch (e) {
+      print(e);
+
+      Scaffold.of(context).showSnackBar(SnackBar(
+        content: Text("Failed to sign in with Google: ${e}"),
+      ));
+    }
+  }
+}
+
+class _AnonymouslyLogin extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => _AnonymouslyLoginState();
+}
+
+class _AnonymouslyLoginState extends State<_AnonymouslyLogin> {
+  @override
+  Widget build(BuildContext context) {
+    return RaisedButton(
+      child: Text('Guest Login'),
+      color: Colors.white,
+      onPressed: () {
+        _signInAnonymously();
+      },
+    );
+  }
+
+  void _signInAnonymously() async {
+    WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp();
 
-    FirebaseAuth.instance.userChanges().listen((user) {
-      if (user != null) {
-        _loginState = ApplicationLoginState.loggedIn;
-      } else {
-        _loginState = ApplicationLoginState.loggedOut;
-      }
-      notifyListeners();
-    });
-  }
-
-  ApplicationLoginState _loginState = ApplicationLoginState.loggedOut;
-  ApplicationLoginState get loginState => _loginState;
-
-  String _email;
-  String get email => _email;
-
-  void startLoginFlow() {
-    _loginState = ApplicationLoginState.emailAddress;
-    notifyListeners();
-  }
-
-  void verifyEmail(
-      String email,
-      void Function(FirebaseAuthException e) errorCallback,
-      ) async {
     try {
-      var methods =
-      await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
-      if (methods.contains('password')) {
-        _loginState = ApplicationLoginState.password;
-      } else {
-        _loginState = ApplicationLoginState.register;
-      }
-      _email = email;
-      notifyListeners();
-    } on FirebaseAuthException catch (e) {
-      errorCallback(e);
+      final User user = (await FirebaseAuth.instance.signInAnonymously()).user;
+
+      Navigator.push(context,
+          MaterialPageRoute(builder: (context) => HomePage()));
+    } catch (e) {
+      Scaffold.of(context).showSnackBar(SnackBar(
+        content: Text("Failed to sign in Anonymously: ${e}"),
+      ));
     }
-  }
-
-  void signInWithEmailAndPassword(
-      String email,
-      String password,
-      void Function(FirebaseAuthException e) errorCallback,
-      ) async {
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } on FirebaseAuthException catch (e) {
-      errorCallback(e);
-    }
-  }
-
-  void cancelRegistration() {
-    _loginState = ApplicationLoginState.emailAddress;
-    notifyListeners();
-  }
-
-  void registerAccount(String email, String displayName, String password,
-      void Function(FirebaseAuthException e) errorCallback) async {
-    try {
-      var credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-      await credential.user.updateProfile(displayName: displayName);
-    } on FirebaseAuthException catch (e) {
-      errorCallback(e);
-    }
-  }
-
-  void signOut() {
-    FirebaseAuth.instance.signOut();
   }
 }
+
